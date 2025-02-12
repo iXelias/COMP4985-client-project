@@ -82,7 +82,7 @@ void account_request(int sock, const char *username, const char *password, int r
 
     printf("\n%d\n\n", sock);
     // Send the encoded packet
-    printf("A %02x packet Sent: ", request_type);
+    printf("A %02d packet Sent: ", request_type);
     for(unsigned long i = 0; i < sizeof(header_packet) / sizeof(header_packet[0]); i++)
     {
         printf("%02x ", header_packet[i]);
@@ -114,7 +114,7 @@ void account_logout(int sock)
 
     printf("\n%d\n\n", sock);
     // Send the encoded packet
-    printf("A %02X packet Sent: ", ACC_LOGOUT);
+    printf("A %02d packet Sent: ", ACC_LOGOUT);
     for(unsigned long i = 0; i < sizeof(header_packet) / sizeof(header_packet[0]); i++)
     {
         printf("%02x ", header_packet[i]);
