@@ -3,4 +3,4 @@
 
 int connect_to_server(void);
 
-#endif //CONNECTION_H
+#endif    // CONNECTION_H
