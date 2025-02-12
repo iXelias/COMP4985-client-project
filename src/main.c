@@ -14,8 +14,8 @@
 
 int main(void)
 {
-    int server_sock_fd = 0;
-    // server_sock_fd     = connect_to_server();
+    int server_sock_fd;
+    server_sock_fd = connect_to_server();
 
     // Create account
     account_request(server_sock_fd, TESTUSERNAME, TESTPASSWORD, CREATE_ACCOUNT);

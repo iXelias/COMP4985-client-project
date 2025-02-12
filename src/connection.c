@@ -5,8 +5,8 @@
 #include <string.h>
 #include <unistd.h>
 
-#define SERVER_PORT 8080
-#define TEMP_IP "127.0.0.1"
+#define SERVER_PORT 39289
+#define TEMP_IP "192.168.0.119"
 
 int connect_to_server(void)
 {

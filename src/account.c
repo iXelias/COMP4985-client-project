@@ -8,6 +8,7 @@
 #define PACKET_BUFFER_SIZE 64
 #define LOGOUT_BUFFER_SIZE 6
 #define PLACEHOLDER 0x00
+#define ACCOUNT_CREATE_SUCCESS 0x00
 #define ACC_LOGIN 0x0A
 #define ACC_LOGOUT 0x0C
 #define ACC_CREATE 0x0D
@@ -88,7 +89,7 @@ void account_request(int sock, const char *username, const char *password, int r
         printf("%02x ", header_packet[i]);
     }
     printf("\n");
-    // send(sock, header_packet, position, 0);
+    send(sock, header_packet, position, 0);
     printf("A account request has been sent.\n");
 }
 
@@ -120,7 +121,7 @@ void account_logout(int sock)
         printf("%02x ", header_packet[i]);
     }
     printf("\n");
-    // send(sock, header_packet, position, 0);
+    send(sock, header_packet, position, 0);
     printf("A logout request has been sent.\n");
 }
 
@@ -137,6 +138,10 @@ void account_response(int sock)
     if(response[0] == ACC_LOGIN_SUCCESS_TAG)
     {    // ACC_Login_Success Tag
         printf("Login Success, User ID: %d\n", response[LOGIN_RESPONSE_PACKET]);
+    }
+    else if(response[0] == ACCOUNT_CREATE_SUCCESS)
+    {
+        printf("Account Creation Success, User ID: %d\n", response[LOGIN_RESPONSE_PACKET]);
     }
     else if(response[0] == SYS_ERROR_TAG)
     {    // SYS_Error Tag
