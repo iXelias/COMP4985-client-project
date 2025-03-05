@@ -24,7 +24,7 @@ _Noreturn void usage(const char *prog_name, int exit_code, const char *message)
 
     fprintf(stderr, "Usage: %s [-h] [-i <address>] [-p <port>]\n", prog_name);
     fputs("-h Display this help message\n", stderr);
-    fputs("-i <address>\n", stderr);
+    fputs("-i <address> Can exclude -i <address> if connecting to current network.\n", stderr);
     fputs("-p <port>\n", stderr);
     exit(exit_code);
 }

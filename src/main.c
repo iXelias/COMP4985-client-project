@@ -38,6 +38,11 @@ int main(int argc, char *argv[])
         manual_address = detected_ip;
     }
 
+    if(manual_port == 0)
+    {
+        usage(argv[0], EXIT_FAILURE, "Error: Empty Port");
+    }
+
     data.client_fd = setup_client(&data.address, manual_address, manual_port);
     if(data.client_fd < 0)
     {
