@@ -246,11 +246,13 @@ static void handle_server_message(int client_fd, GuiData gui_data)
             uint16_t user_id;
             if(decode_acc_login_success(packet_buf, &header, &user_id) == 0)
             {
-                printf("[Server->Client] ACC_Login_Success: user ID = %u\n", user_id);
+                char chat_message[BUF_SIZE];
+                snprintf(chat_message, sizeof(chat_message), "[Server->Client] ACC_Login_Success: user ID = %u\n", user_id);
+                add_message_to_chat(&gui_data, chat_message);
             }
             else
             {
-                printf("Error decoding ACC_Login_Success\n");
+                log_error(&gui_data, "Error decoding ACC_Login_Success\n");
             }
             break;
         }
@@ -265,15 +267,6 @@ static void handle_server_message(int client_fd, GuiData gui_data)
                 snprintf(chat_message, sizeof(chat_message), "[%s] %s: %s", timestamp, username, content);
 
                 add_message_to_chat(&gui_data, chat_message);
-
-                // Print to console for debugging
-                printf("[Server->Client] Chat Message:\n"
-                       "  Timestamp: %s\n"
-                       "  Content: %s\n"
-                       "  Username: %s\n",
-                       timestamp,
-                       content,
-                       username);
                 free(timestamp);
                 free(content);
                 free(username);
