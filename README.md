@@ -1,45 +1,38 @@
-# template-c Repository Guide
+# COMP4985-Client Repository Guide
 
-Welcome to the `c template` repository. This guide will help you set up and run the provided scripts.
+Welcome to the `COMP498-client-project` repository. This guide will help you set up the client project,
+and run the program
 
 ## **Table of Contents**
 
 1. [Cloning the Repository](#cloning-the-repository)
-2. [Prerequisites](#Prerequisites)
+2. [Creating links to the repository](#creating-links-to-the-repository)
 3. [Running the `generate-cmakelists.sh` Script](#running-the-generate-cmakelistssh-script)
 4. [Running the `change-compiler.sh` Script](#running-the-change-compilersh-script)
-5. [Running the `build.sh` Script](#running-the-buildsh-script)
-5. [Running the `build-all.sh` Script](#running-the-build-allsh-script)
-6. [Copy the template to start a new project](#copy-the-template-to-start-a-new-project)
+5. [Building the program with GCC](#building-the-program-with-gcc)
+6. [Running the program](#running-the-program)
 
 ## **Cloning the Repository**
 
 Clone the repository using the following command:
 
 ```bash
-git clone https://github.com/programming101dev/template-c.git
+git clone https://github.com/iXelias/COMP4985-client-project.git
 ```
 
 Navigate to the cloned directory:
 
 ```bash
-cd template-c
+cd COMP4985-client-project
 ```
 
-Ensure the scripts are executable:
+## **Creating links to the repository**
+
+Need to create links to D'Arcy's build system:
 
 ```bash
-chmod +x *.sh
+./create-links.sh <work/programming101dev/scripts/>
 ```
-
-## **Prerequisites**
-
-- to ensure you have all of the required tools installed, run:
-```bash
-./check-env.sh
-```
-
-If you are missing tools follow these [instructions](https://docs.google.com/document/d/1ZPqlPD1mie5iwJ2XAcNGz7WeA86dTLerFXs9sAuwCco/edit?usp=drive_link).
 
 ## **Running the generate-cmakelists.sh Script**
 
@@ -63,38 +56,19 @@ To the see the list of possible compilers:
 cat supported_cxx_compilers.txt
 ```
 
-## **Running the build.sh Script**
+## **Building the program with GCC**
 
 To build the program run:
 
 ```bash
-./build.sh
+gcc src/main.c src/ncurses_gui.c src/asn.c src/connection.c -o  client -lncurses -pthread
 ```
 
-## **Running the build-all.sh Script**
 
-To build the program with all compilers run:
+## **Running the program**
+
+To run the program:
 
 ```bash
-./build-all.sh
+./client
 ```
-
-## **Copy the template to start a new project**
-
-To create a new project from the template, run:
-
-```bash
-./copy-template.sh <desitnation directory>
-```
-
-This will copy all of the files needed to start a new project.
-
-1. Edit the files.txt
-2. run ./generate-cmakelists.sh
-3. run ./change-compiler.sh -c <compiler>
-4. run ./build.sh
-
-The files.txt file contains:
-<executable> <source files> <header files> <libraries>
-
-When you need to add/removes files to/from the project you must rerun the 4 steps above. 
