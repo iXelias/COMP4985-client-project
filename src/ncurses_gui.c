@@ -3,8 +3,8 @@
 #define INPUT_HEIGHT 3
 #define USER_BOX_WIDTH 15
 
-
-void init_gui(GuiData *gui_data) {
+void init_gui(GuiData *gui_data)
+{
     // Initialize ncurses
     initscr();
     cbreak();
@@ -26,7 +26,7 @@ void init_gui(GuiData *gui_data) {
     box(gui_data->input_win, 0, 0);
 
     // Add the ">" prompt to the input window
-    mvwprintw(gui_data->input_win, 1, 1, "> ");  // Print ">" at position (1, 1)
+    mvwprintw(gui_data->input_win, 1, 1, "> ");    // Print ">" at position (1, 1)
 
     // Move the cursor to the input window and refresh it
     wmove(gui_data->input_win, 1, 3);
@@ -51,22 +51,24 @@ void cleanup_gui(GuiData *gui_data)
     pthread_mutex_destroy(&gui_data->lock);
 }
 
-void add_message_to_chat(GuiData *gui_data, const char *message) {
+void add_message_to_chat(GuiData *gui_data, const char *message)
+{
     pthread_mutex_lock(&gui_data->lock);
-    wprintw(gui_data->chat_win, " %s\n", message);  // Append the message
-    box(gui_data->chat_win, 0, 0);  // Redraw the box
-    wrefresh(gui_data->chat_win);  // Refresh the window to show the new message
+    wprintw(gui_data->chat_win, " %s\n", message);    // Append the message
+    box(gui_data->chat_win, 0, 0);                    // Redraw the box
+    wrefresh(gui_data->chat_win);                     // Refresh the window to show the new message
     wmove(gui_data->input_win, 1, 3);
-    wrefresh(gui_data->input_win);  // Make sure cursor is in input window
+    wrefresh(gui_data->input_win);    // Make sure cursor is in input window
     pthread_mutex_unlock(&gui_data->lock);
 }
 
-void get_user_input(GuiData *gui_data, char *input_buffer, int buffer_size) {
+void get_user_input(GuiData *gui_data, char *input_buffer, int buffer_size)
+{
     pthread_mutex_lock(&gui_data->lock);
 
     // Clear only the input line
-    wmove(gui_data->input_win, 1, 1);  // Move to the start of the input line
-    wclrtoeol(gui_data->input_win);   // Clear the line from the cursor to the end
+    wmove(gui_data->input_win, 1, 1);    // Move to the start of the input line
+    wclrtoeol(gui_data->input_win);      // Clear the line from the cursor to the end
 
     // Redraw the ">" prompt
     mvwprintw(gui_data->input_win, 1, 1, "> ");

@@ -26,7 +26,7 @@ struct networkSocket
 static void interactive_loop(int client_fd, GuiData gui_data);
 static void handle_server_message(int client_fd, GuiData gui_data);
 static void handle_user_command(int client_fd, const char *command_line, GuiData gui_data);
-void log_error(GuiData *gui_data, const char *message);
+void        log_error(GuiData *gui_data, const char *message);
 
 int main(int argc, char *argv[])
 {
@@ -86,13 +86,15 @@ int main(int argc, char *argv[])
  * @brief Continuously listen for user input (stdin) and server messages (socket).
  *        We'll use select() on both.
  */
-static void interactive_loop(int client_fd, GuiData gui_data) {
+static void interactive_loop(int client_fd, GuiData gui_data)
+{
     char input_buffer[MAX_CMD_LEN];
 
-    while (1) {
+    while(1)
+    {
         fd_set readfds;
-        int max_fd;
-        int ret;
+        int    max_fd;
+        int    ret;
 
         FD_ZERO(&readfds);
         FD_SET(STDIN_FILENO, &readfds);
@@ -102,8 +104,10 @@ static void interactive_loop(int client_fd, GuiData gui_data) {
 
         // Wait for user input or server data
         ret = select(max_fd + 1, &readfds, NULL, NULL, NULL);
-        if (ret < 0) {
-            if (errno == EINTR) {
+        if(ret < 0)
+        {
+            if(errno == EINTR)
+            {
                 // Interrupted by signal, keep going
                 continue;
             }
@@ -112,12 +116,14 @@ static void interactive_loop(int client_fd, GuiData gui_data) {
         }
 
         // Check user input on stdin
-        if (FD_ISSET(STDIN_FILENO, &readfds)) {
+        if(FD_ISSET(STDIN_FILENO, &readfds))
+        {
             // Use the new input function to get user input
             get_user_input(&gui_data, input_buffer, sizeof(input_buffer));
 
             // Handle the user command
-            if (strcmp(input_buffer, "quit") == 0 || strcmp(input_buffer, "exit") == 0) {
+            if(strcmp(input_buffer, "quit") == 0 || strcmp(input_buffer, "exit") == 0)
+            {
                 printf("Client closing.\n");
                 break;
             }
@@ -126,7 +132,8 @@ static void interactive_loop(int client_fd, GuiData gui_data) {
         }
 
         // Check if server sent data
-        if (FD_ISSET(client_fd, &readfds)) {
+        if(FD_ISSET(client_fd, &readfds))
+        {
             handle_server_message(client_fd, gui_data);
         }
     }
@@ -379,7 +386,7 @@ static void handle_user_command(int client_fd, const char *command_line, GuiData
     }
     else
     {
-        char error_message[BUF_SIZE];  // Buffer to hold formatted message
+        char error_message[BUF_SIZE];    // Buffer to hold formatted message
         snprintf(error_message, sizeof(error_message), "Unrecognized command: %s", token);
         add_message_to_chat(&gui_data, error_message);
         add_message_to_chat(&gui_data, "Commands:\n");
@@ -391,12 +398,13 @@ static void handle_user_command(int client_fd, const char *command_line, GuiData
     }
 }
 
-void log_error(GuiData *gui_data, const char *message) {
+void log_error(GuiData *gui_data, const char *message)
+{
+    char error_message[BUF_SIZE];
     // Log the error to the terminal using perror
     perror(message);
 
     // Log the error to the chat box
-    char error_message[BUF_SIZE];
     snprintf(error_message, sizeof(error_message), "Error: %s: %s", message, strerror(errno));
     add_message_to_chat(gui_data, error_message);
 }
