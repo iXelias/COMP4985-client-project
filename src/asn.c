@@ -1,4 +1,4 @@
-#include "asn.h"
+#include "../include/asn.h"
 #include <arpa/inet.h>    // For htons(), ntohs()
 #include <stdio.h>
 #include <stdlib.h>
