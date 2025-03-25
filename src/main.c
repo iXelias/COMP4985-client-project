@@ -3,7 +3,6 @@
 #include "../include/ncurses_gui.h"
 #include <arpa/inet.h>
 #include <errno.h>
-#include <ncurses.h>
 #include <netinet/in.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,6 +14,9 @@
 /* Keep your macros for max command length, buffer size, etc. */
 #define MAX_CMD_LEN 256
 #define BUF_SIZE 512
+
+/* Global flag to track login status */
+static int logged_in = 0;
 
 struct networkSocket
 {
@@ -31,7 +33,6 @@ void        log_error(GuiData *gui_data, const char *message);
 int main(int argc, char *argv[])
 {
     struct networkSocket data;
-    char                 detected_ip[INET_ADDRSTRLEN];
     char                *manual_address;
     in_port_t            manual_port;
     GuiData              gui_data;
@@ -46,6 +47,7 @@ int main(int argc, char *argv[])
     /* 2) If no address was specified, detect it */
     if(manual_address == NULL)
     {
+        char      detected_ip[INET_ADDRSTRLEN];
         in_addr_t ip;
         find_address(&ip, detected_ip);
         manual_address = detected_ip;
@@ -70,11 +72,10 @@ int main(int argc, char *argv[])
     init_gui(&gui_data);
     add_message_to_chat(&gui_data, "Client starting.\n");
     add_message_to_chat(&gui_data, "Type commands like:\n");
-    add_message_to_chat(&gui_data, "  create <username> <password>\n");
-    add_message_to_chat(&gui_data, "  login <username> <password>\n");
-    add_message_to_chat(&gui_data, "  logout\n");
-    add_message_to_chat(&gui_data, "  chat <message>\n");
-    add_message_to_chat(&gui_data, "  quit or exit\n");
+    add_message_to_chat(&gui_data, "  /create <username> <password>\n");
+    add_message_to_chat(&gui_data, "  /login <username> <password>\n");
+    add_message_to_chat(&gui_data, "  /logout\n");
+    add_message_to_chat(&gui_data, "  /quit or /exit\n");
     add_message_to_chat(&gui_data, "Client starting.\n");
     interactive_loop(data.client_fd, gui_data);
 
@@ -88,8 +89,6 @@ int main(int argc, char *argv[])
  */
 static void interactive_loop(int client_fd, GuiData gui_data)
 {
-    char input_buffer[MAX_CMD_LEN];
-
     while(1)
     {
         fd_set readfds;
@@ -102,36 +101,57 @@ static void interactive_loop(int client_fd, GuiData gui_data)
 
         max_fd = (STDIN_FILENO > client_fd) ? STDIN_FILENO : client_fd;
 
-        // Wait for user input or server data
         ret = select(max_fd + 1, &readfds, NULL, NULL, NULL);
         if(ret < 0)
         {
             if(errno == EINTR)
             {
-                // Interrupted by signal, keep going
                 continue;
             }
             perror("select");
             break;
         }
 
-        // Check user input on stdin
         if(FD_ISSET(STDIN_FILENO, &readfds))
         {
-            // Use the new input function to get user input
+            char input_buffer[MAX_CMD_LEN];
             get_user_input(&gui_data, input_buffer, sizeof(input_buffer));
 
-            // Handle the user command
-            if(strcmp(input_buffer, "quit") == 0 || strcmp(input_buffer, "exit") == 0)
+            // Check for quit command
+            if(strcmp(input_buffer, "/quit") == 0 || strcmp(input_buffer, "/exit") == 0)
             {
                 printf("Client closing.\n");
                 break;
             }
 
-            handle_user_command(client_fd, input_buffer, gui_data);
+            // If the input starts with '/', treat it as a command.
+            if(input_buffer[0] == '/')
+            {
+                handle_user_command(client_fd, input_buffer, gui_data);
+            }
+            else
+            {
+                // Check if the user is logged in before sending a chat message.
+                if(!logged_in)
+                {
+                    add_message_to_chat(&gui_data, "You must log in before sending chat messages.\n");
+                }
+                else
+                {
+                    uint8_t buf[BUF_SIZE];
+                    // Here, update the user id, timestamp, and username as needed.
+                    const char *timestamp  = "20250304160000Z";    // example timestamp
+                    const char *username   = "You";                // update upon login if necessary
+                    int         packet_len = encode_chat_send_req(buf, 1, timestamp, input_buffer, username);
+
+                    if(write(client_fd, buf, (size_t)packet_len) < 0)
+                    {
+                        log_error(&gui_data, "write chat");
+                    }
+                }
+            }
         }
 
-        // Check if server sent data
         if(FD_ISSET(client_fd, &readfds))
         {
             handle_server_message(client_fd, gui_data);
@@ -181,7 +201,6 @@ static void handle_server_message(int client_fd, GuiData gui_data)
     {
         char chat_message[BUF_SIZE];
         snprintf(chat_message, sizeof(chat_message), "Received packet type 0x%02x with no payload.\n", header.packet_type);
-
         add_message_to_chat(&gui_data, chat_message);
         return;
     }
@@ -256,6 +275,8 @@ static void handle_server_message(int client_fd, GuiData gui_data)
                 char chat_message[BUF_SIZE];
                 snprintf(chat_message, sizeof(chat_message), "[Server->Client] ACC_Login_Success: user ID = %u\n", user_id);
                 add_message_to_chat(&gui_data, chat_message);
+                /* Mark the client as logged in */
+                logged_in = 1;
             }
             else
             {
@@ -272,7 +293,6 @@ static void handle_server_message(int client_fd, GuiData gui_data)
             {
                 char chat_message[BUF_SIZE];
                 snprintf(chat_message, sizeof(chat_message), "[%s] %s: %s", timestamp, username, content);
-
                 add_message_to_chat(&gui_data, chat_message);
                 free(timestamp);
                 free(content);
@@ -293,7 +313,7 @@ static void handle_server_message(int client_fd, GuiData gui_data)
 }
 
 /**
- * @brief Takes a user command (create/login/logout/chat) and sends the corresponding packet
+ * @brief Takes a user command (create/login/logout) and sends the corresponding packet
  */
 static void handle_user_command(int client_fd, const char *command_line, GuiData gui_data)
 {
@@ -308,103 +328,69 @@ static void handle_user_command(int client_fd, const char *command_line, GuiData
     strncpy(cmd_copy, command_line, len_cmd_copy);
     cmd_copy[len_cmd_copy] = '\0';
 
-    /* use strtok_r for reentrancy */
-    saveptr = NULL;
-    token   = strtok_r(cmd_copy, " ", &saveptr);
+    token = strtok_r(cmd_copy, " ", &saveptr);
     if(!token)
     {
         return;
     }
 
-    /* parse commands */
-    if(strcmp(token, "create") == 0)
+    if(strcmp(token, "/create") == 0)
     {
-        /* create <username> <password> */
+        int         packet_len;
         const char *uname = strtok_r(NULL, " ", &saveptr);
         const char *pass  = strtok_r(NULL, " ", &saveptr);
+
         if(!uname || !pass)
         {
-            add_message_to_chat(&gui_data, "Usage: create <username> <password>\n");
+            add_message_to_chat(&gui_data, "Usage: /create <username> <password>\n");
             return;
         }
+
+        packet_len = encode_acc_create_req(buf, uname, pass);
+
+        if(write(client_fd, buf, (size_t)packet_len) < 0)
         {
-            int packet_len = encode_acc_create_req(buf, uname, pass);
-            if(write(client_fd, buf, (size_t)packet_len) < 0)
-            {
-                log_error(&gui_data, "write create");
-            }
+            log_error(&gui_data, "write create");
         }
     }
-    else if(strcmp(token, "login") == 0)
+    else if(strcmp(token, "/login") == 0)
     {
-        /* login <username> <password> */
+        int         packet_len;
         const char *uname = strtok_r(NULL, " ", &saveptr);
         const char *pass  = strtok_r(NULL, " ", &saveptr);
+
         if(!uname || !pass)
         {
-            add_message_to_chat(&gui_data, "Usage: login <username> <password>\n");
+            add_message_to_chat(&gui_data, "Usage: /login <username> <password>\n");
             return;
         }
+        packet_len = encode_acc_login_req(buf, uname, pass);
+        if(write(client_fd, buf, (size_t)packet_len) < 0)
         {
-            int packet_len = encode_acc_login_req(buf, uname, pass);
-            if(write(client_fd, buf, (size_t)packet_len) < 0)
-            {
-                log_error(&gui_data, "write login");
-            }
+            log_error(&gui_data, "write login");
         }
     }
-    else if(strcmp(token, "logout") == 0)
+    else if(strcmp(token, "/logout") == 0)
     {
-        /* logout */
+        int packet_len = encode_acc_logout_req(buf, 1);
+        if(write(client_fd, buf, (size_t)packet_len) < 0)
         {
-            /* e.g. sender_id = 1 for demonstration */
-            int packet_len = encode_acc_logout_req(buf, 1);
-            if(write(client_fd, buf, (size_t)packet_len) < 0)
-            {
-                log_error(&gui_data, "write logout");
-            }
-        }
-    }
-    else if(strcmp(token, "chat") == 0)
-    {
-        /* chat <message> */
-        const char *chat_msg = strtok_r(NULL, "", &saveptr);
-        if(!chat_msg)
-        {
-            add_message_to_chat(&gui_data, "Usage: chat <message>\n");
-            return;
-        }
-        {
-            const char *timestamp  = "20250304160000Z";
-            const char *username   = "You";
-            int         packet_len = encode_chat_send_req(buf, 1, timestamp, chat_msg, username);
-            if(write(client_fd, buf, (size_t)packet_len) < 0)
-            {
-                log_error(&gui_data, "write chat");
-            }
+            log_error(&gui_data, "write logout");
         }
     }
     else
     {
-        char error_message[BUF_SIZE];    // Buffer to hold formatted message
-        snprintf(error_message, sizeof(error_message), "Unrecognized command: %s", token);
-        add_message_to_chat(&gui_data, error_message);
-        add_message_to_chat(&gui_data, "Commands:\n");
-        add_message_to_chat(&gui_data, "  create <username> <password>\n");
-        add_message_to_chat(&gui_data, "  login <username> <password>\n");
-        add_message_to_chat(&gui_data, "  logout\n");
-        add_message_to_chat(&gui_data, "  chat <message>\n");
-        add_message_to_chat(&gui_data, "  quit or exit\n");
+        add_message_to_chat(&gui_data, "Unrecognized command.\nCommands:\n  /create <username> <password>\n  /login <username> <password>\n  /logout\n  /quit or /exit\n");
     }
 }
 
 void log_error(GuiData *gui_data, const char *message)
 {
     char error_message[BUF_SIZE];
-    // Log the error to the terminal using perror
+    /* Log the error to the terminal using perror */
     perror(message);
 
-    // Log the error to the chat box
+    /* Log the error to the chat box */
     snprintf(error_message, sizeof(error_message), "Error: %s: %s", message, strerror(errno));
     add_message_to_chat(gui_data, error_message);
 }
