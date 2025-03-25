@@ -9,14 +9,17 @@
 #include <string.h>
 #include <sys/select.h>
 #include <sys/socket.h>
+#include <time.h>
 #include <unistd.h>
 
 /* Keep your macros for max command length, buffer size, etc. */
-#define MAX_CMD_LEN 256
 #define BUF_SIZE 512
+#define MAX_CMD_LEN 256
+#define MAX_USERNAME_LEN 256
 
-/* Global flag to track login status */
-static int logged_in = 0;
+/* Global flags to track login status and logged-in username*/
+static int  logged_in                          = 0;
+static char current_username[MAX_USERNAME_LEN] = "";
 
 struct networkSocket
 {
@@ -131,18 +134,20 @@ static void interactive_loop(int client_fd, GuiData gui_data)
             }
             else
             {
-                // Check if the user is logged in before sending a chat message.
                 if(!logged_in)
                 {
                     add_message_to_chat(&gui_data, "You must log in before sending chat messages.\n");
                 }
                 else
                 {
-                    uint8_t buf[BUF_SIZE];
-                    // Here, update the user id, timestamp, and username as needed.
-                    const char *timestamp  = "20250304160000Z";    // example timestamp
-                    const char *username   = "You";                // update upon login if necessary
-                    int         packet_len = encode_chat_send_req(buf, 1, timestamp, input_buffer, username);
+                    uint8_t    buf[BUF_SIZE];
+                    time_t     now     = time(NULL);
+                    struct tm *tm_info = gmtime(&now);
+                    char       timestamp[32];
+                    int        packet_len;
+                    strftime(timestamp, sizeof(timestamp), "%Y%m%d%H%M%SZ", tm_info);
+
+                    packet_len = encode_chat_send_req(buf, 1, timestamp, input_buffer, current_username);
 
                     if(write(client_fd, buf, (size_t)packet_len) < 0)
                     {
@@ -364,12 +369,18 @@ static void handle_user_command(int client_fd, const char *command_line, GuiData
             add_message_to_chat(&gui_data, "Usage: /login <username> <password>\n");
             return;
         }
+
+        // Store the username for later use
+        strncpy(current_username, uname, MAX_USERNAME_LEN - 1);
+        current_username[MAX_USERNAME_LEN - 1] = '\0';
+
         packet_len = encode_acc_login_req(buf, uname, pass);
         if(write(client_fd, buf, (size_t)packet_len) < 0)
         {
             log_error(&gui_data, "write login");
         }
     }
+
     else if(strcmp(token, "/logout") == 0)
     {
         int packet_len = encode_acc_logout_req(buf, 1);
