@@ -3,6 +3,7 @@
 #include "../include/ncurses_gui.h"
 #include <arpa/inet.h>
 #include <errno.h>
+#include <ncurses.h>
 #include <netinet/in.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -30,6 +31,7 @@ void        log_error(GuiData *gui_data, const char *message);
 int main(int argc, char *argv[])
 {
     struct networkSocket data;
+    char                 detected_ip[INET_ADDRSTRLEN];
     char                *manual_address;
     in_port_t            manual_port;
     GuiData              gui_data;
@@ -44,7 +46,6 @@ int main(int argc, char *argv[])
     /* 2) If no address was specified, detect it */
     if(manual_address == NULL)
     {
-        char      detected_ip[INET_ADDRSTRLEN];
         in_addr_t ip;
         find_address(&ip, detected_ip);
         manual_address = detected_ip;
@@ -87,6 +88,8 @@ int main(int argc, char *argv[])
  */
 static void interactive_loop(int client_fd, GuiData gui_data)
 {
+    char input_buffer[MAX_CMD_LEN];
+
     while(1)
     {
         fd_set readfds;
@@ -115,7 +118,6 @@ static void interactive_loop(int client_fd, GuiData gui_data)
         // Check user input on stdin
         if(FD_ISSET(STDIN_FILENO, &readfds))
         {
-            char input_buffer[MAX_CMD_LEN];
             // Use the new input function to get user input
             get_user_input(&gui_data, input_buffer, sizeof(input_buffer));
 
@@ -399,7 +401,6 @@ static void handle_user_command(int client_fd, const char *command_line, GuiData
 void log_error(GuiData *gui_data, const char *message)
 {
     char error_message[BUF_SIZE];
-
     // Log the error to the terminal using perror
     perror(message);
 

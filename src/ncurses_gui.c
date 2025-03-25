@@ -62,7 +62,7 @@ void add_message_to_chat(GuiData *gui_data, const char *message)
     pthread_mutex_unlock(&gui_data->lock);
 }
 
-void get_user_input(GuiData *gui_data, char *input_buffer, const int buffer_size)
+void get_user_input(GuiData *gui_data, char *input_buffer, int buffer_size)
 {
     pthread_mutex_lock(&gui_data->lock);
 
