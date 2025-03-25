@@ -1,9 +1,7 @@
 #include <../include/account.h>
 #include <arpa/inet.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 
 #define PACKET_BUFFER_SIZE 64
 #define LOGOUT_BUFFER_SIZE 6
@@ -12,7 +10,6 @@
 #define ACC_LOGIN 0x0A
 #define ACC_LOGOUT 0x0C
 #define ACC_CREATE 0x0D
-// #define SEQUENCE_TAG 0x30
 #define UTF8STRING_TAG 0x0C
 #define ACC_LOGIN_SUCCESS_TAG 0x0B
 #define SYS_ERROR_TAG 0x01
