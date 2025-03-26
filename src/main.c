@@ -15,6 +15,7 @@
 #define BUF_SIZE 512
 #define MAX_CMD_LEN 256
 #define TIMESTAMP_SIZE 32
+
 #define TEN 10
 
 struct networkSocket
@@ -27,16 +28,17 @@ struct networkSocket
 static void interactive_loop(int client_fd, GuiData *gui_data);
 static void handle_server_message(int client_fd, GuiData *gui_data);
 static void handle_user_command(int client_fd, const char *command_line, GuiData *gui_data);
-void        log_error(GuiData *gui_data, const char *message);
+void        log_sys_error(GuiData *gui_data, const char *message);
+void        log_error(GuiData *gui_data, const char *format, ...) __attribute__((format(printf, 2, 3)));
 
 int main(int argc, char *argv[])
 {
     struct networkSocket data;
     struct networkSocket manager_socket;
-    char                *manual_address = NULL;
-    char                 detected_ip[INET_ADDRSTRLEN];
-    in_port_t            manual_port = 0;
-    GuiData              gui_data;
+    char     *manual_address = NULL;
+    char      detected_ip[INET_ADDRSTRLEN];
+    in_port_t manual_port = 0;
+    GuiData   gui_data;
 
     uint8_t buf[BUF_SIZE];
     int     packet_len;
@@ -79,7 +81,7 @@ int main(int argc, char *argv[])
     bytes_sent = write(manager_socket.client_fd, buf, (size_t)packet_len);
     if(bytes_sent < 0)
     {
-        log_error(&gui_data, "Failed to request server IP from manager");
+        perror("Failed to request server IP from manager");
         close(manager_socket.client_fd);
         exit(EXIT_FAILURE);
     }
@@ -207,7 +209,7 @@ static void interactive_loop(int client_fd, GuiData *gui_data)
                     packet_len = encode_chat_send_req(buf, 1, timestamp, input_buffer, gui_data->current_username);
                     if(write(client_fd, buf, (size_t)packet_len) < 0)
                     {
-                        log_error(gui_data, "write chat");
+                        log_sys_error(gui_data, "write chat");
                     }
                 }
             }
@@ -231,6 +233,7 @@ static void handle_server_message(int client_fd, GuiData *gui_data)
     ssize_t  bytes_read;
     header_t header;
     uint8_t *packet_buf;
+    char     error_message[BUF_SIZE];
 
     bytes_read = read(client_fd, header_buf, HEADERLEN);
     if(bytes_read == 0)
@@ -240,18 +243,19 @@ static void handle_server_message(int client_fd, GuiData *gui_data)
     }
     else if(bytes_read < 0)
     {
-        log_error(gui_data, "read header");
+        log_sys_error(gui_data, "read header");
         exit(EXIT_FAILURE);
     }
     else if(bytes_read < HEADERLEN)
     {
-        fprintf(stderr, "Partial header: %zd < %d\n", bytes_read, HEADERLEN);
+        log_error(gui_data, "Partial header: %zd < %d\n", bytes_read, HEADERLEN);
+        // fprintf(stderr, "Partial header: %zd < %d\n", bytes_read, HEADERLEN);
         exit(EXIT_FAILURE);
     }
 
     if(decode_header(header_buf, &header) < 0)
     {
-        fprintf(stderr, "Invalid or unsupported header.\n");
+        add_message_to_chat(gui_data, "Invalid or unsupported header.\n");
         return;
     }
 
@@ -266,7 +270,7 @@ static void handle_server_message(int client_fd, GuiData *gui_data)
     packet_buf = (uint8_t *)malloc((size_t)header.payload_len + HEADERLEN);
     if(!packet_buf)
     {
-        log_error(gui_data, "malloc");
+        log_sys_error(gui_data, "malloc");
         return;
     }
 
@@ -276,13 +280,14 @@ static void handle_server_message(int client_fd, GuiData *gui_data)
         ssize_t payload_read = read(client_fd, packet_buf + HEADERLEN, header.payload_len);
         if(payload_read < 0)
         {
-            log_error(gui_data, "read payload");
+            log_sys_error(gui_data, "read payload");
             free(packet_buf);
             return;
         }
         if((size_t)payload_read < header.payload_len)
         {
-            fprintf(stderr, "Partial payload: %zd < %u\n", payload_read, header.payload_len);
+            log_error(gui_data, "Partial payload: %zd < %u\n", payload_read, header.payload_len);
+            // fprintf(stderr, "Partial payload: %zd < %u\n", payload_read, header.payload_len);
             free(packet_buf);
             return;
         }
@@ -301,7 +306,7 @@ static void handle_server_message(int client_fd, GuiData *gui_data)
             }
             else
             {
-                log_error(gui_data, "Error decoding SYS_Success\n");
+                log_sys_error(gui_data, "Error decoding SYS_Success\n");
             }
             break;
         }
@@ -318,7 +323,7 @@ static void handle_server_message(int client_fd, GuiData *gui_data)
             }
             else
             {
-                log_error(gui_data, "Error decoding SYS_Error\n");
+                log_sys_error(gui_data, "Error decoding SYS_Error\n");
             }
             break;
         }
@@ -334,7 +339,7 @@ static void handle_server_message(int client_fd, GuiData *gui_data)
             }
             else
             {
-                log_error(gui_data, "Error decoding ACC_Login_Success\n");
+                log_sys_error(gui_data, "Error decoding ACC_Login_Success\n");
             }
             break;
         }
@@ -354,12 +359,13 @@ static void handle_server_message(int client_fd, GuiData *gui_data)
             }
             else
             {
-                printf("Error decoding chat message\n");
+                log_sys_error(gui_data, "Error decoding chat message\n");
             }
             break;
         }
         default:
-            printf("Unhandled packet type: 0x%02X\n", header.packet_type);
+            snprintf(error_message, sizeof(error_message), "%s: 0x%02X\n", "Unhandled packet type:", header.packet_type);
+            add_message_to_chat(gui_data, error_message);
             break;
     }
 
@@ -403,7 +409,7 @@ static void handle_user_command(int client_fd, const char *command_line, GuiData
         packet_len = encode_acc_create_req(buf, uname, pass);
         if(write(client_fd, buf, (size_t)packet_len) < 0)
         {
-            log_error(gui_data, "write create");
+            log_sys_error(gui_data, "write create");
         }
     }
     else if(strcmp(token, "/login") == 0)
@@ -425,7 +431,7 @@ static void handle_user_command(int client_fd, const char *command_line, GuiData
         packet_len = encode_acc_login_req(buf, uname, pass);
         if(write(client_fd, buf, (size_t)packet_len) < 0)
         {
-            log_error(gui_data, "write login");
+            log_sys_error(gui_data, "write login");
         }
     }
     else if(strcmp(token, "/logout") == 0)
@@ -433,19 +439,30 @@ static void handle_user_command(int client_fd, const char *command_line, GuiData
         int packet_len = encode_acc_logout_req(buf, 1);
         if(write(client_fd, buf, (size_t)packet_len) < 0)
         {
-            log_error(gui_data, "write logout");
+            log_sys_error(gui_data, "write logout");
         }
     }
     else
     {
-        add_message_to_chat(gui_data, "Unrecognized command.\nCommands:\n  /create <username> <password>\n  /login <username> <password>\n  /logout\n  /quit or /exit\n");
+        add_message_to_chat(gui_data, "Unrecognized command.\n Commands:\n  /create <username> <password>\n  /login <username> <password>\n  /logout\n  /quit or /exit\n");
     }
 }
 
-void log_error(GuiData *gui_data, const char *message)
+// Handles perror errors
+void log_sys_error(GuiData *gui_data, const char *message)
 {
     char error_message[BUF_SIZE];
-    perror(message);
     snprintf(error_message, sizeof(error_message), "Error: %s: %s", message, strerror(errno));
+    add_message_to_chat(gui_data, error_message);
+}
+
+// Handles fprintf errors
+void log_error(GuiData *gui_data, const char *format, ...)
+{
+    char    error_message[BUF_SIZE];
+    va_list args;
+    va_start(args, format);
+    vsnprintf(error_message, sizeof(error_message), format, args);
+    va_end(args);
     add_message_to_chat(gui_data, error_message);
 }
