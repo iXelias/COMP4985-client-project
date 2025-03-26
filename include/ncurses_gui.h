@@ -25,6 +25,8 @@ static inline void mark_used(const GuiData *h)
     (void)h->input_win;
     (void)h->user_win;
     (void)h->lock;
+    (void)h->logged_in;
+    (void)h->current_username;
 }
 
 void init_gui(GuiData *gui_data);

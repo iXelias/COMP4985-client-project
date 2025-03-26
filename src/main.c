@@ -15,6 +15,7 @@
 #define BUF_SIZE 512
 #define MAX_CMD_LEN 256
 #define TIMESTAMP_SIZE 32
+#define TEN 10
 
 struct networkSocket
 {
@@ -31,10 +32,19 @@ void        log_error(GuiData *gui_data, const char *message);
 int main(int argc, char *argv[])
 {
     struct networkSocket data;
-    char                *manual_address;
+    struct networkSocket manager_socket;
+    char                *manual_address = NULL;
     char                 detected_ip[INET_ADDRSTRLEN];
-    in_port_t            manual_port;
+    in_port_t            manual_port = 0;
     GuiData              gui_data;
+
+    uint8_t buf[BUF_SIZE];
+    int     packet_len;
+    char   *server_ip       = NULL;
+    char   *server_port_str = NULL;
+    int     server_online   = 0;
+    ssize_t bytes_sent;
+    ssize_t bytes_received;
 
     data.client_fd = 0;
     manual_address = NULL;
@@ -57,7 +67,53 @@ int main(int argc, char *argv[])
         usage(argv[0], EXIT_FAILURE, "Error: Empty Port");
     }
 
-    /* 4) Connect to the server */
+    /* 4) Connect to the server manager first */
+    manager_socket.client_fd = setup_client(&manager_socket.address, manual_address, manual_port);
+    if(manager_socket.client_fd < 0)
+    {
+        exit(EXIT_FAILURE);
+    }
+
+    /* 5) Request the real server IP and port from the server manager */
+    packet_len = encode_client_get_ip(buf);    // Send request to get the server IP
+    bytes_sent = write(manager_socket.client_fd, buf, (size_t)packet_len);
+    if(bytes_sent < 0)
+    {
+        log_error(&gui_data, "Failed to request server IP from manager");
+        close(manager_socket.client_fd);
+        exit(EXIT_FAILURE);
+    }
+
+    /* Handle the response from the server manager */
+    bytes_received = read(manager_socket.client_fd, buf, sizeof(buf));
+    if(bytes_received > 0)
+    {
+        if(decode_manager_return_ip(buf, sizeof(buf), &server_online, &server_ip, &server_port_str) == 0)
+        {
+            if(server_online)
+            {
+                manual_address = server_ip;
+
+                manual_port = (in_port_t)strtol(server_port_str, NULL, TEN);    // Convert port string to number
+                if(manual_port == 0 && server_port_str[0] != '0')               // Check if conversion failed
+                {
+                    fprintf(stderr, "Error: Invalid port number '%s'.\n", server_port_str);
+                    exit(EXIT_FAILURE);
+                }
+            }
+            else
+            {
+                fprintf(stderr, "No active server available.\n");
+                close(manager_socket.client_fd);
+                exit(EXIT_FAILURE);
+            }
+        }
+    }
+
+    /* 6) Disconnect from the server manager */
+    close(manager_socket.client_fd);
+
+    /* 7) Connect to the real server with IP and Port from Manager */
     data.client_fd = setup_client(&data.address, manual_address, manual_port);
     if(data.client_fd < 0)
     {
@@ -66,7 +122,7 @@ int main(int argc, char *argv[])
 
     display_port(&data.address, manual_address);
 
-    /* 5) Switch to interactive loop mode */
+    /* 8) Switch to interactive loop mode */
     init_gui(&gui_data);
     gui_data.logged_in           = 0;
     gui_data.current_username[0] = '\0';
