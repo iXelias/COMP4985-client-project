@@ -67,14 +67,14 @@ int main(int argc, char *argv[])
         usage(argv[0], EXIT_FAILURE, "Error: Empty Port");
     }
 
-    /* 4) Connect to the server manager first */
+    /* 4) Connect to the server manager */
     manager_socket.client_fd = setup_client(&manager_socket.address, manual_address, manual_port);
     if(manager_socket.client_fd < 0)
     {
         exit(EXIT_FAILURE);
     }
 
-    /* 5) Request the real server IP and port from the server manager */
+    /* 5) Request the server IP and port from the server manager */
     packet_len = encode_client_get_ip(buf);    // Send request to get the server IP
     bytes_sent = write(manager_socket.client_fd, buf, (size_t)packet_len);
     if(bytes_sent < 0)
@@ -113,7 +113,7 @@ int main(int argc, char *argv[])
     /* 6) Disconnect from the server manager */
     close(manager_socket.client_fd);
 
-    /* 7) Connect to the real server with IP and Port from Manager */
+    /* 7) Connect to the  server with IP and Port from Manager */
     data.client_fd = setup_client(&data.address, manual_address, manual_port);
     if(data.client_fd < 0)
     {
