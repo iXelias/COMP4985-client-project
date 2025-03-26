@@ -15,7 +15,6 @@
 #define BUF_SIZE 512
 #define MAX_CMD_LEN 256
 #define TIMESTAMP_SIZE 32
-
 #define TEN 10
 
 struct networkSocket
