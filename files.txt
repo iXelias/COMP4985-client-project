@@ -1,2 +1,2 @@
-main src/main.c src/connection.c include/connection.h src/asn.c include/asn.h src/ncurses_gui.c include/ncurses_gui.h
+main src/main.c src/connection.c include/connection.h src/asn.c include/asn.h src/ncurses_gui.c include/ncurses_gui.h curses
 test_asn src/test_asn.c include/test_asn.h src/asn.c include/asn.h
