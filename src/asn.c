@@ -291,28 +291,33 @@ int decode_acc_login_success(const uint8_t buf[], header_t *header, uint16_t *us
 
 int decode_sys_error(const uint8_t buf[], header_t *header, uint8_t *err_code, char **err_msg)
 {
-    int pos = decode_header(buf, header);
+    int len;
+    int pos;
+    pos = decode_header(buf, header);
     if(pos < 0)
     {
         return -1;
     }
-    if(buf[pos] != ASN_ENUM)
+
+    // Accept either ENUMERATED (ASN_ENUM) or INTEGER (ASN_INT) for error code
+    if(buf[pos] != ASN_ENUM && buf[pos] != ASN_INT)
     {
-        fprintf(stderr, "SYS_Error: Expected ENUM tag, got %u\n", buf[pos]);
+        fprintf(stderr, "SYS_Error: Expected ENUM (0x0A) or INTEGER (0x02) tag, got 0x%02x\n", buf[pos]);
         return -1;
     }
     pos++;
+
+    len = buf[pos];
+    pos++;
+    if(len != 1)
     {
-        int len = buf[pos];
-        pos++;
-        if(len != 1)
-        {
-            fprintf(stderr, "SYS_Error: Unexpected ENUM length %d\n", len);
-            return -1;
-        }
+        fprintf(stderr, "SYS_Error: Unexpected error code length %d\n", len);
+        return -1;
     }
+
     *err_code = buf[pos];
     pos++;
+
     pos = decode_utf8_string_tag(buf, pos, ASN_STR, err_msg);
     if(pos < 0)
     {

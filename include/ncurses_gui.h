@@ -17,10 +17,12 @@ typedef struct
     pthread_mutex_t lock;
     int             logged_in;                             // 0 means not logged in, 1 means logged in
     char            current_username[MAX_USERNAME_LEN];    // stores the username
+    uint16_t        user_id;
 } GuiData;
 
 static inline void mark_used(const GuiData *h)
 {
+    (void)h->user_id;
     (void)h->chat_win;
     (void)h->input_win;
     (void)h->user_win;

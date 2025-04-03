@@ -15,6 +15,7 @@
 #define BUF_SIZE 512
 #define MAX_CMD_LEN 256
 #define TIMESTAMP_SIZE 32
+
 #define TEN 10
 
 struct networkSocket
@@ -34,10 +35,10 @@ int main(int argc, char *argv[])
 {
     struct networkSocket data;
     struct networkSocket manager_socket;
-    char     *manual_address = NULL;
-    char      detected_ip[INET_ADDRSTRLEN];
-    in_port_t manual_port = 0;
-    GuiData   gui_data;
+    char                *manual_address = NULL;
+    char                 detected_ip[INET_ADDRSTRLEN];
+    in_port_t            manual_port = 0;
+    GuiData              gui_data;
 
     uint8_t buf[BUF_SIZE];
     int     packet_len;
@@ -205,7 +206,7 @@ static void interactive_loop(int client_fd, GuiData *gui_data)
                     tm_info = gmtime_r(&now, &tm_result);
                     strftime(timestamp, sizeof(timestamp), "%Y%m%d%H%M%SZ", tm_info);
 
-                    packet_len = encode_chat_send_req(buf, 1, timestamp, input_buffer, gui_data->current_username);
+                    packet_len = encode_chat_send_req(buf, gui_data->user_id, timestamp, input_buffer, gui_data->current_username);
                     if(write(client_fd, buf, (size_t)packet_len) < 0)
                     {
                         log_sys_error(gui_data, "write chat");
@@ -335,6 +336,7 @@ static void handle_server_message(int client_fd, GuiData *gui_data)
                 snprintf(chat_message, sizeof(chat_message), "[Server->Client] ACC_Login_Success: user ID = %u\n", user_id);
                 add_message_to_chat(gui_data, chat_message);
                 gui_data->logged_in = 1;
+                gui_data->user_id   = user_id;
             }
             else
             {
@@ -435,11 +437,15 @@ static void handle_user_command(int client_fd, const char *command_line, GuiData
     }
     else if(strcmp(token, "/logout") == 0)
     {
-        int packet_len = encode_acc_logout_req(buf, 1);
+        int packet_len = encode_acc_logout_req(buf, gui_data->user_id);
         if(write(client_fd, buf, (size_t)packet_len) < 0)
         {
             log_sys_error(gui_data, "write logout");
         }
+        add_message_to_chat(gui_data, "Logged out. Closing connection.\n");
+        close(client_fd);
+        cleanup_gui(gui_data);
+        exit(EXIT_SUCCESS);
     }
     else
     {
