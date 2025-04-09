@@ -43,12 +43,21 @@ void init_gui(GuiData *gui_data)
 
 void cleanup_gui(GuiData *gui_data)
 {
-    // Clean up
+    // Reset terminal to cooked mode
+    def_prog_mode();
+    endwin();
+    reset_shell_mode();
+
+    // Clean up windows
     delwin(gui_data->chat_win);
     delwin(gui_data->user_win);
     delwin(gui_data->input_win);
-    endwin();
+
+    // Destroy mutex
     pthread_mutex_destroy(&gui_data->lock);
+
+    // Explicitly reset terminal
+    system("stty sane");
 }
 
 void add_message_to_chat(GuiData *gui_data, const char *message)

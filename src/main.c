@@ -3,6 +3,7 @@
 #include "../include/ncurses_gui.h"
 #include <errno.h>
 #include <netinet/in.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -25,19 +26,20 @@ struct networkSocket
 
 /* Function prototypes (now taking GuiData pointers) */
 static void interactive_loop(int client_fd, GuiData *gui_data);
-static void handle_server_message(int client_fd, GuiData *gui_data);
+static int  handle_server_message(int client_fd, GuiData *gui_data);
 static void handle_user_command(int client_fd, const char *command_line, GuiData *gui_data);
 void        log_sys_error(GuiData *gui_data, const char *message);
 void        log_error(GuiData *gui_data, const char *format, ...) __attribute__((format(printf, 2, 3)));
+void        handle_sigint(int sig);
 
 int main(int argc, char *argv[])
 {
     struct networkSocket data;
     struct networkSocket manager_socket;
-    char     *manual_address = NULL;
-    char      detected_ip[INET_ADDRSTRLEN];
-    in_port_t manual_port = 0;
-    GuiData   gui_data;
+    char                *manual_address = NULL;
+    char                 detected_ip[INET_ADDRSTRLEN];
+    in_port_t            manual_port = 0;
+    GuiData              gui_data;
 
     uint8_t buf[BUF_SIZE];
     int     packet_len;
@@ -122,6 +124,8 @@ int main(int argc, char *argv[])
     }
 
     display_port(&data.address, manual_address);
+
+    signal(SIGINT, handle_sigint);
 
     /* 8) Switch to interactive loop mode */
     init_gui(&gui_data);
@@ -216,7 +220,14 @@ static void interactive_loop(int client_fd, GuiData *gui_data)
 
         if(FD_ISSET(client_fd, &readfds))
         {
-            handle_server_message(client_fd, gui_data);
+            if(handle_server_message(client_fd, gui_data) < 0)
+            {
+                char input_buffer[MAX_CMD_LEN];
+                // Server disconnected or error occurred
+                add_message_to_chat(gui_data, "Disconnected from server. Press any key to exit...");
+                get_user_input(gui_data, input_buffer, sizeof(input_buffer));    // Wait for user input
+                break;
+            }
         }
     }
 
@@ -226,7 +237,7 @@ static void interactive_loop(int client_fd, GuiData *gui_data)
 /**
  * @brief Reads one packet from the server, decodes it, and processes the data.
  */
-static void handle_server_message(int client_fd, GuiData *gui_data)
+static int handle_server_message(int client_fd, GuiData *gui_data)
 {
     uint8_t  header_buf[HEADERLEN];
     ssize_t  bytes_read;
@@ -238,24 +249,24 @@ static void handle_server_message(int client_fd, GuiData *gui_data)
     if(bytes_read == 0)
     {
         add_message_to_chat(gui_data, "Server closed connection.\n");
-        exit(EXIT_SUCCESS);
+        return -1;    // Indicate server disconnect
     }
-    else if(bytes_read < 0)
+    if(bytes_read < 0)
     {
         log_sys_error(gui_data, "read header");
-        exit(EXIT_FAILURE);
+        return -1;    // Indicate error
     }
-    else if(bytes_read < HEADERLEN)
+    if(bytes_read < HEADERLEN)
     {
         log_error(gui_data, "Partial header: %zd < %d\n", bytes_read, HEADERLEN);
         // fprintf(stderr, "Partial header: %zd < %d\n", bytes_read, HEADERLEN);
-        exit(EXIT_FAILURE);
+        return -1;    // Indicate error
     }
 
     if(decode_header(header_buf, &header) < 0)
     {
         add_message_to_chat(gui_data, "Invalid or unsupported header.\n");
-        return;
+        return 0;
     }
 
     if(header.payload_len == 0)
@@ -263,14 +274,14 @@ static void handle_server_message(int client_fd, GuiData *gui_data)
         char chat_message[BUF_SIZE];
         snprintf(chat_message, sizeof(chat_message), "Received packet type 0x%02x with no payload.\n", header.packet_type);
         add_message_to_chat(gui_data, chat_message);
-        return;
+        return 0;
     }
 
     packet_buf = (uint8_t *)malloc((size_t)header.payload_len + HEADERLEN);
     if(!packet_buf)
     {
         log_sys_error(gui_data, "malloc");
-        return;
+        return 0;
     }
 
     memcpy(packet_buf, header_buf, HEADERLEN);
@@ -281,14 +292,14 @@ static void handle_server_message(int client_fd, GuiData *gui_data)
         {
             log_sys_error(gui_data, "read payload");
             free(packet_buf);
-            return;
+            return 0;
         }
         if((size_t)payload_read < header.payload_len)
         {
             log_error(gui_data, "Partial payload: %zd < %u\n", payload_read, header.payload_len);
             // fprintf(stderr, "Partial payload: %zd < %u\n", payload_read, header.payload_len);
             free(packet_buf);
-            return;
+            return 0;
         }
     }
 
@@ -369,6 +380,7 @@ static void handle_server_message(int client_fd, GuiData *gui_data)
     }
 
     free(packet_buf);
+    return 0;
 }
 
 /**
@@ -464,4 +476,9 @@ void log_error(GuiData *gui_data, const char *format, ...)
     vsnprintf(error_message, sizeof(error_message), format, args);
     va_end(args);
     add_message_to_chat(gui_data, error_message);
+}
+
+void handle_sigint(int sig)
+{
+    (void)sig;
 }
