@@ -22,20 +22,21 @@ _Noreturn void usage(const char *prog_name, int exit_code, const char *message)
         fprintf(stderr, "%s\n", message);
     }
 
-    fprintf(stderr, "Usage: %s [-h] [-i <address>] [-p <port>]\n", prog_name);
+    fprintf(stderr, "Usage: %s [-h] [-i <address>] [-p <port>] [-b \"test\"]\n", prog_name);
     fputs("-h Display this help message\n", stderr);
     fputs("-i <address> Can exclude -i <address> if connecting to current network.\n", stderr);
     fputs("-p <port>\n", stderr);
+    fputs("-b optional: \"test\" Use \"test\" to bypass the server manager and connect directly to server", stderr);
     exit(exit_code);
 }
 
-void parse_args(int argc, char **argv, char **address, in_port_t *port)
+void parse_args(int argc, char **argv, char **address, in_port_t *port, int *bypass_manager)
 {
     int opt;
     *address = NULL;
     *port    = 0;
 
-    while((opt = getopt(argc, argv, "hi:p:")) != -1)
+    while((opt = getopt(argc, argv, "hi:p:b")) != -1)
     {
         switch(opt)
         {
@@ -46,6 +47,12 @@ void parse_args(int argc, char **argv, char **address, in_port_t *port)
                 break;
             case 'p':
                 *port = parse_port(argv[0], optarg);
+                break;
+            case 'b':
+                if(optarg != NULL && strcmp(optarg, "test") == 0)
+                {
+                    *bypass_manager = 1;
+                }
                 break;
             case '?':
                 usage(argv[0], EXIT_FAILURE, "Error: Unknown option");

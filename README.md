@@ -56,11 +56,15 @@ To the see the list of possible compilers:
 cat supported_cxx_compilers.txt
 ```
 
-## **Building the program with GCC**
+## **Building the program with build or GCC**
 
 To build the program run:
 
 ```bash
+./build-all.sh
+
+or
+
 gcc src/main.c src/ncurses_gui.c src/asn.c src/connection.c -o  client -lncurses -pthread
 ```
 
@@ -70,5 +74,9 @@ gcc src/main.c src/ncurses_gui.c src/asn.c src/connection.c -o  client -lncurses
 To run the program:
 
 ```bash
+./build/main
+
+or
+
 ./client
 ```
